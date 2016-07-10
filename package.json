@@ -1,0 +1,27 @@
+{
+  "name": "railviz",
+  "version": "0.0.0",
+  "description": "Rail vizualization tool",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/slaweet/railviz.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/slaweet/railviz/issues"
+  },
+  "homepage": "https://github.com/slaweet/railviz",
+  "dependencies": {
+    "commander": "~2.9.0",
+    "request": "~2.73.0",
+    "cheerio": "~0.20.0",
+    "cached-request": "~1.0.0",
+    "jsonfile": "~2.3.1",
+    "express": "~4.14.0"
+  }
+}
