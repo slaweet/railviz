@@ -90,6 +90,9 @@ var Processor = (function() {
           stop.station = n.stationsDict[stop.station];
           return stop;
         });
+        line.trains = line.trains.map(function(train) {
+          return n.trainsDict[train];
+        });
         return line;
       });
       return n;
@@ -126,7 +129,7 @@ var Processor = (function() {
       n.stations.forEach(function(station) {
         station.trains = station.trains || [];
         station.size = 4 + (station.trains.length || 0) / 50;
-        station.showLabel = station.trains.length > 80 && station.terminus;
+        station.showLabel = station.trains.length > 60 && station.terminus;
       });
       n.stations = n.stations.sort(function(a, b) {
         return a.trains.length - b.trains.length;
@@ -178,7 +181,7 @@ var Processor = (function() {
     },
     lineWidth: function(n) {
       n.lines.forEach(function(line) {
-        line.width = 2 + line.trains.length / 5;
+        line.width = 1 + line.trains.length / 5;
       });
       return n;
     },
@@ -201,6 +204,7 @@ var Processor = (function() {
       return n;
     },
     drawLines : function(n) {
+      var that = this;
       n.lines.forEach(function(line) {
         if (line.path !== 'M') {
           line.elem = n.paper.path(line.path);
@@ -210,8 +214,10 @@ var Processor = (function() {
             'stroke': line.color,
             'stroke-linecap': 'round',
             'stroke-linejoin': 'round',
+            'cursor': 'pointer',
           });
           line.elem.click(function() {
+            that.showTimetable(n, line);
             console.log(line.id, line.stops.map(function(s) {return s.station;}).join(' -> '));
           });
           line.elem.hover(function() {
@@ -241,27 +247,71 @@ var Processor = (function() {
       });
       return n;
     },
+    showTimetable : function(n, line) {
+
+      var rows = line.stops.map(function(t) {
+        return [t.station.title];
+      });
+      rows = [['']].concat(rows);
+      console.log(line.trains);
+      for (var i = 0; i < line.trains.length; i++) {
+          rows[0].push(line.trains[i].id);
+        for (var j = 0; j < line.trains[i].stops.length; j++) {
+          var stop = line.trains[i].stops[j];
+          rows[j + 1].push(stop.departure || stop.arrival);
+        }
+      }
+      var content = rows.map(function(row) {
+        return '<tr><td>' + row.join('</td><td>') + '</td></tr>';
+      }).join('');
+      content = '<a class="close">&times;</a><table><tr>' + content + '</tr></table>';
+      $('#timetable').html(content);
+      $('.close').click(function() {
+        $('#timetable').html('');
+      });
+    },
     drawStations : function(n) {
       n.stations.forEach(function(station) {
         if (station.size > 1 && !station.hide && station.terminus) {
+          station.title = station.title.replace(/ z$/, '').replace(' žst', '').replace(' hlavní nádraží', '');
           station.elem = n.paper.circle(station.gridX, station.gridY, station.size);
           station.elem.attr({
             'fill': 'white',
             'stroke-width' : 2,
             'title': station.title,
+            'cursor': 'pointer',
           });
           station.elem.click(function() {
             console.log(station);
+            window.open( 'http://www.zelpage.cz/odjezdy-2016/' + station.id + '.html', station.title, '');
           });
 
-          if (station.showLabel) {
-            station.label = n.paper.text(station.gridX, station.gridY, '  ' + station.title.replace(' žst', '').replace(' hlavní nádraží', ''));
+          if (station.terminus) {
+            var gridX = station.gridX / n.cellSize;
+            var gridY = station.gridY / n.cellSize;
+            var translateX = 1;
+            var translateY = -1;
+            var anchor = 'start';
+            if (((n.grid[gridX + 1] && n.grid[gridX + 1][gridY]) ||
+                (n.grid[gridX + 1] && n.grid[gridX + 1][gridY - 1])) &&
+                n.grid[gridX - 1] && !n.grid[gridX - 1][gridY] &&
+                n.grid[gridX - 1] && !n.grid[gridX - 1][gridY - 1]) {
+              anchor = 'end';
+              translateX = -1;
+            } else if ((n.grid[gridX + 1] && n.grid[gridX + 1][gridY] &&
+                  n.grid[gridX - 1] && n.grid[gridX - 1][gridY]) ||
+                (n.grid[gridX + 1] && n.grid[gridX + 1][gridY - 1] &&
+                  n.grid[gridX - 1] && !n.grid[gridX + 1][gridY + 1])) {
+              translateY = 1;
+            }
+            station.label = n.paper.text(station.gridX, station.gridY, '  ' + station.title.length > 20 ? station.title.substr(0, 20) + '...' : station.title);
+
             station.label.attr({
-              'text-anchor' : 'start',
+              'text-anchor' : anchor,
               'font-weight' : 'bold',
               'font-size' : 5 + station.size,
             });
-            station.label.translate(station.size / 1.2, -station.size / 1.2);
+            station.label.translate(translateX * (2 + station.size), translateY * (2 + station.size));
             //station.label.rotate(-10, station.gridX, station.gridY);
           }
         }
@@ -273,9 +323,9 @@ var Processor = (function() {
 
 function main() {
   var n = {};
-  n.width = $("#map").width() * 2 - 50;
-  n.height = $(window).height() * 2 - 100;
-  n.paper = new Raphael("map", n.width, n.height);
+  n.width = 3000;
+  n.height = 1200;
+  n.paper = new Raphael("map", n.width + 120, n.height + 40);
 
   var stationsUrl = 'data/stations.json';
   var that = {};

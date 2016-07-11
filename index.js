@@ -140,6 +140,7 @@ function findLines(trains) {
       id = id2;
       name = name2;
     }
+    name = (train.id.split(/\s/).length > 1 ? train.id.split(/\s/)[0] : 'Os') + ' ' + name;
     var line = linesDict[id] || {
       trains : [],
       id : id,

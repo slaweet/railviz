@@ -1,13 +1,38 @@
 <html>
 <head>
-  <title>RailViz</title>
+  <title>Mapa vlakových linek</title>
   <style>
+   #timetable {
+     position: fixed;
+     top: 0px;
+     right: 0px;
+     background: white;
+     padding: 20px;
+     max-width: 95%;
+     max-height: 95%;
+     overflow: auto;
+   }
+   #timetable table td {
+     border: black solid 1px;
+     padding: 5px;
+     white-space: nowrap;
+   }
+   #timetable table {
+     border-collapse: collapse;
+   }
+   .close {
+     cursor: pointer;
+     float: right;
+     font-size: 2em;
+     padding: 5px;
+     display: inline-block;
+   }
   </style>
 </head>
 <body>
-  <h1>RailViz</h1>
-  <div id="controlls"></div>
+  <h1>Mapa vlakových linek</h1>
   <div id="map"></div>
+  <div id="timetable"></div>
   <script src="jQuery/dist/jquery.min.js" charset="utf-8"></script>
   <script src="raphael/raphael.min.js" charset="utf-8"></script>
   <script src="chroma-js/chroma.min.js" charset="utf-8"></script>
