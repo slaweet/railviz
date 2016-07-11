@@ -35,6 +35,46 @@ function getTime(elem, i) {
   }
   return time;
 }
+
+function findLines(trains) {
+  var lines = [];
+  var linesDict = {};
+  trains.forEach(function(train) {
+    var name = train.stops[0].station + ' - ' + train.stops[train.stops.length - 1].station;
+    var id = name + train.stops.length;
+    var name2 = train.stops[train.stops.length - 1].station + ' - ' + train.stops[0].station;
+    var id2 = name2 + train.stops.length;
+    if (linesDict[id2]) {
+      id = id2;
+      name = name2;
+    }
+    name = (train.id.split(/\s/).length > 1 ? train.id.split(/\s/)[0] : 'Os') + ' ' + name;
+    var line = linesDict[id] || {
+      trains : [],
+      id : id,
+      name : name,
+      stops : train.stops.map(function(s) {return {station : s.station};}),
+    };
+    line.trains.push(train.id);
+    linesDict[id] = line;
+
+  });
+  for (var i in linesDict) {
+    lines.push(linesDict[i]);
+  }
+
+  return lines;
+}
+
+function processLines(trains) {
+  console.log("Processing lines");
+  var lines = findLines(trains);
+  var linesFile = './static/data/lines.json';
+  console.log("Lines found: ", lines.length);
+  jsonfile.writeFile(linesFile, lines, function (err) {
+      console.error(err);
+  });
+}
  
 function processTrains(stations, callback) {
   console.log("Processing trains");
@@ -49,6 +89,7 @@ function processTrains(stations, callback) {
           var train = trains[id] || {
             id : id,
             stops : [],
+            note : $(elem).find('td:nth-child(6)').text().trim(),
           };
           if (station.id === 'cadca' && id.indexOf(' ') === -1) {
             //pass
@@ -57,7 +98,6 @@ function processTrains(stations, callback) {
               arrival : getTime($(elem), 1),
               departure : getTime($(elem), 2),
               station : station.id,
-              note : $(elem).find('td:nth-child(6)').text().trim(),
             });
             station.trains = station.trains || [];
             station.trains.push(train.id);
@@ -128,93 +168,81 @@ function processStations(stations) {
   });
 }
 
-function findLines(trains) {
-  var lines = [];
-  var linesDict = {};
-  trains.forEach(function(train) {
-    var name = train.stops[0].station + ' - ' + train.stops[train.stops.length - 1].station;
-    var id = name + train.stops.length;
-    var name2 = train.stops[train.stops.length - 1].station + ' - ' + train.stops[0].station;
-    var id2 = name2 + train.stops.length;
-    if (linesDict[id2]) {
-      id = id2;
-      name = name2;
-    }
-    name = (train.id.split(/\s/).length > 1 ? train.id.split(/\s/)[0] : 'Os') + ' ' + name;
-    var line = linesDict[id] || {
-      trains : [],
-      id : id,
-      name : name,
-      stops : train.stops.map(function(s) {return {station : s.station};}),
-    };
-    line.trains.push(train.id);
-    linesDict[id] = line;
-
-  });
-  for (var i in linesDict) {
-    lines.push(linesDict[i]);
-  }
-
-  return lines;
-}
-
-function processTracks(trackLinks) {
+function processTracks(trackLinks, callback) {
   console.log("Processing tracks");
   var stationLinks = [];
   var stations = [];
   var itemsProcessed = 0;
+  var tracks = [];
   trackLinks.forEach(function(link) {
     cachedRequest({url: server + link}, function (error, response, body) {
+      var track = {
+        id: link.replace('trate/ceska-republika/trat-', ''),
+        stops: [],
+      };
       var $ = cheerio.load(body);
       $('table td a[href^="/stanice/"]').each(function(i, linkElem) {
         var link = $(linkElem).attr('href');
+        var id = link.replace('/stanice/', '').replace('.html', '');
         if (stationLinks.indexOf(link) === -1 && stationLinks.length < 50000) {
           stationLinks.push(link);
           stations.push({
-            id: link.replace('/stanice/', '').replace('.html', ''),
+            id: id,
             link: link,
           });
         }
+        track.stops.push({
+          station: id,
+          distance: +$('table tr:nth-child(' + i + ') td:nth-child(1)').text().trim(),
+        });
       });
+      tracks.push(track);
       itemsProcessed++;
       if(itemsProcessed === trackLinks.length) {
-        processStations(stations);
+        var file = './static/data/tracks.json';
+        console.log(tracks.length, "tracks writen to file", file);
+        jsonfile.writeFile(file, tracks, function (err) {
+            console.error(err);
+        });
+        if (callback) {
+          callback(stations);
+        }
       }
     });
 
   });
 }
 
-function processLines(trains) {
-  console.log("Processing lines");
-  var lines = findLines(trains);
-  var linesFile = './static/data/lines.json';
-  console.log("Lines found: ", lines.length);
-  jsonfile.writeFile(linesFile, lines, function (err) {
-      console.error(err);
+function getTracks(callback) {
+  cachedRequest({url: server + 'trate/ceska-republika'}, function (error, response, body) {
+    if (!error && response.statusCode === 200) {
+      var $ = cheerio.load(body);
+      var trackLinks = [];
+      $('table.seznam td a[href^="trate"]').each(function(i, linkElem) {
+        trackLinks.push($(linkElem).attr('href'));
+      });
+      processTracks(trackLinks, callback);
+    }
   });
 }
 
 program
   .version('0.0.0')
   .command('scrape [optional]')
-  .description('command description')
+  .description('scrapes all tracks, stations and trains')
   .option('-o, --option','we can still have add l options')
   .action(function(req, optional){
-    cachedRequest({url: server + 'trate/ceska-republika'}, function (error, response, body) {
-      if (!error && response.statusCode === 200) {
-        var $ = cheerio.load(body);
-        var trackLinks = [];
-        $('table.seznam td a[href^="trate"]').each(function(i, linkElem) {
-          trackLinks.push($(linkElem).attr('href'));
-        });
-        processTracks(trackLinks);
-      }
-    });
+    getTracks(processStations);
+  });
+program
+  .command('tracks')
+  .description('scrapes tracks only')
+  .action(function(req, optional){
+    getTracks();
   });
 program
   .command('lines')
-  .description('command description')
+  .description('computes lines from the trains')
   .action(function(req, optional){
     var file = './static/data/trains.json';
     jsonfile.readFile(file, function(err, trains) {

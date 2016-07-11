@@ -181,7 +181,7 @@ var Processor = (function() {
     },
     lineWidth: function(n) {
       n.lines.forEach(function(line) {
-        line.width = 1 + line.trains.length / 5;
+        line.width = 4 + line.trains.length / 5;
       });
       return n;
     },
@@ -190,8 +190,10 @@ var Processor = (function() {
         line.stops = line.stops || [];
         line.path = "M" + line.stops.filter(function(stop) {
           var station = stop.station;
-          return station && station.x && !station.hide;
-        }).map(function(stop) {
+          return station && station.x && !station.hide && station.terminus;
+        }).map(function(stop, i, stops) {
+          var prev = stops[i - 1];
+          var next = stops[i + 1];
           var station = stop.station;
           return station && (station.gridX + ',' + station.gridY);
         }).join(' L');
@@ -210,7 +212,7 @@ var Processor = (function() {
           line.elem = n.paper.path(line.path);
           line.elem.attr({
             'stroke-width' : line.width,
-            'title': line.name + ' ' + Math.ceil(line.trains.length / 2) + 'krát denně',
+            'title': line.name + ' ' + line.trains.length + 'krát denně',
             'stroke': line.color,
             'stroke-linecap': 'round',
             'stroke-linejoin': 'round',
@@ -253,7 +255,6 @@ var Processor = (function() {
         return [t.station.title];
       });
       rows = [['']].concat(rows);
-      console.log(line.trains);
       for (var i = 0; i < line.trains.length; i++) {
           rows[0].push(line.trains[i].id);
         for (var j = 0; j < line.trains[i].stops.length; j++) {
@@ -292,7 +293,9 @@ var Processor = (function() {
             var translateX = 1;
             var translateY = -1;
             var anchor = 'start';
-            if (((n.grid[gridX + 1] && n.grid[gridX + 1][gridY]) ||
+            if (n.grid[gridX + 1] && !n.grid[gridX + 1][gridY]) {
+              translateY = 0;
+            } else if (((n.grid[gridX + 1] && n.grid[gridX + 1][gridY]) ||
                 (n.grid[gridX + 1] && n.grid[gridX + 1][gridY - 1])) &&
                 n.grid[gridX - 1] && !n.grid[gridX - 1][gridY] &&
                 n.grid[gridX - 1] && !n.grid[gridX - 1][gridY - 1]) {
